@@ -22,15 +22,20 @@ Create `.auto.tfvars` using `ex.tfvars` as an example.
 Deploying is very straight forward after the requirements are met. Simply run:
 
 ```bash
-npm run build-db
 npm run deploy
 ```
 
-This will build the infrastructure from end-to-end.
+This will build the infrastructure from end-to-end and deploy it. The deployment will take a few minutes to complete.
+
+To only deploy the infrastructure for the database, run:
+
+```bash
+npm run deploy:db
+```
 
 ## Destroying
 
-To remove the existing infrastructure, run:
+To remove all existing infrastructure, run:
 
 ```bash
 npm run remove

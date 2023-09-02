@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build-env": "node ./env.js",
-    "build-db": "cd terraform && terraform init && terraform apply -auto-approve && cd ../ && npm run build-env",
+    "plan": "cd terraform && terraform init && terraform plan",
+    "build:env": "node ./env.js",
+    "deploy:db": "cd terraform && terraform init && terraform apply -auto-approve && cd ../ && npm run build:env",
     "dev": "sst dev",
-    "build": "npm run build-db && sst build",
-    "deploy": "npm run build && sst deploy",
+    "build:sst": "sst build",
+    "deploy": "npm run deploy:db && sst deploy",
     "remove": "sst remove && cd terraform && terraform destroy -auto-approve",
     "console": "sst console",
     "typecheck": "tsc --noEmit"
