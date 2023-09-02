@@ -220,7 +220,7 @@ data "aws_iam_policy_document" "system-manager" {
   statement {
     actions = [
       "ssm:GetParameter"
-    ]
+    ]a
     effect = "Allow"
     resources = [
       "arn:aws:ssm:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:${var.admin_password}",
