@@ -1,8 +1,8 @@
 locals {
   INFLUXDB_USERNAME    = "admin"
-  INFLUXDB_PASSWORD    = "parameter/admin_password"
-  INFLUXDB_ADMIN_TOKEN = "parameter/admin_token"
-  ec2_key_pair_name    = "lhr2"
+  INFLUXDB_PASSWORD    = "parameter/random-testing-key"
+  INFLUXDB_ADMIN_TOKEN = "parameter/random-token-goes-here"
+  ec2_key_pair_name    = "lhr1"
 }
 
 module "influxdb" {

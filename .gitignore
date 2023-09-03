@@ -43,3 +43,4 @@ node_modules
 
 .sst
 cdk.context.json
+setup.zip
