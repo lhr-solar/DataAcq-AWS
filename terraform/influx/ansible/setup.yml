@@ -206,27 +206,12 @@
       register: auth_check
 
     - name: Get admin password from Parameter Store
-      command: "/usr/bin/aws --region {{ aws_region }} ssm get-parameter --name '{{ admin_password | regex_replace('parameter/') }}' --with-decryption --query Parameter.Value --output text"
-      register: parameter_password
-      when: admin_password is match('parameter/.*')
-
-    - name: Get admin password from Secrets Manager
-      command: "/usr/bin/aws --region {{ aws_region }} secretsmanager get-secret-value --secret-id '{{ admin_password | regex_replace('secret/') }}' --query SecretString --output text"
-      register: secret_password
-      when: admin_password is match('secret/*')
+      command: "/usr/bin/aws --region {{ aws_region }} ssm get-parameter --name 'admin_password' --with-decryption --query Parameter.Value --output text"
+      register: password
 
     - name: Get admin token from Parameter Store
-      command: "/usr/bin/aws --region {{ aws_region }} ssm get-parameter --name '{{ admin_token | regex_replace('parameter/') }}' --with-decryption --query Parameter.Value --output text"
-      register: parameter_token
-      when: admin_token is match('parameter/.*')
-
-    - name: Get admin token from Secrets Manager
-      command: "/usr/bin/aws --region {{ aws_region }} secretsmanager get-secret-value --secret-id '{{ admin_token | regex_replace('secret/') }}' --query SecretString --output text"
-      register: secret_token
-      when: admin_token is match('secret/*')
+      command: "/usr/bin/aws --region {{ aws_region }} ssm get-parameter --name 'admin_token' --with-decryption --query Parameter.Value --output text"
+      register: token
 
     - name: Setup InfluxDB
       command: "influx setup -u {{ admin_username }} -p {{ password }} -t {{ token }} -o {{ influxdb_org }} -b {{ influxdb_bucket }} -f"
-      vars:
-        password: "{{ parameter_password.stdout if parameter_password is defined else secret_password.stdout }}"
-        token: "{{ parameter_token.stdout if parameter_token is defined else secret_token.stdout }}"

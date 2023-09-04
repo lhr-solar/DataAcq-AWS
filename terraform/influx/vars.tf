@@ -108,7 +108,7 @@ variable "private_subnet_ids" {
 }
 
 variable "default_security_group" {
-  type = string
+  type        = string
   description = "ID of the default security group in the VPC where resources will be created."
 }
 
@@ -150,4 +150,12 @@ variable "wal_storage_volume_type" {
 variable "flux_enabled" {
   default     = false
   description = "If true, flux will be enabled."
+}
+
+variable "client_vpn_server_certificate_arn" {
+  description = "The ARN of the client VPN server certificate."
+}
+
+variable "client_cidr_block" {
+  description = "The CIDR block to assign to the client VPN endpoint."
 }
