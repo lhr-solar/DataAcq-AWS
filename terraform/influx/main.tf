@@ -54,10 +54,8 @@ data "aws_ami" "amzn2" {
 }
 
 locals {
-  is_admin_password_systems_manager = length(regexall("^parameter/.*", var.admin_password)) > 0
-  is_admin_password_secrets_manager = length(regexall("^secrets/.*", var.admin_password)) > 0
-  is_hosted_zone_provided           = length(var.hosted_zone_id) > 0
-  is_image_id_provided              = length(var.image_id) > 0
+  is_hosted_zone_provided = length(var.hosted_zone_id) > 0
+  is_image_id_provided    = length(var.image_id) > 0
   instance_type_support_recovery = contains(
     ["a1", "c3", "c4", "c5", "c5n", "m3", "m4", "m5", "m5a", "m5n", "p3", "r3", "r4", "r5", "r5a", "r5n", "t2", "t3", "t3a", "x1", "x1e"],
     split(".", var.instance_type)[0]
@@ -129,6 +127,90 @@ resource "aws_ec2_instance_connect_endpoint" "ec2" {
   subnet_id          = data.aws_subnet.private[0].id
   security_group_ids = [var.default_security_group, aws_security_group.private.id]
   preserve_client_ip = false
+}
+
+resource "aws_cloudwatch_log_group" "vpn_log_group" {
+  name              = "svt-client-vpn"
+  retention_in_days = 1
+}
+
+resource "aws_cloudwatch_log_stream" "vpn_log_stream" {
+  name           = "svt-client-vpn"
+  log_group_name = aws_cloudwatch_log_group.vpn_log_group.name
+}
+
+resource "aws_security_group" "vpn_endpoint" {
+  name_prefix = "${local.prefix}influxdb-vpn-"
+  vpc_id      = var.vpc_id
+  description = "Security group for InfluxDB VPN"
+  tags        = merge(var.tags, { Name : "${local.prefix}influxdb-vpn" })
+}
+
+resource "aws_security_group_rule" "vpn_ingress" {
+  type              = "ingress"
+  security_group_id = aws_security_group.vpn_endpoint.id
+  cidr_blocks       = ["0.0.0.0/0"]
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "all"
+}
+
+resource "aws_security_group_rule" "vpn_egress" {
+  type              = "egress"
+  security_group_id = aws_security_group.vpn_endpoint.id
+  cidr_blocks       = ["0.0.0.0/0"]
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "all"
+}
+
+resource "aws_ec2_client_vpn_endpoint" "client_vpn" {
+  server_certificate_arn = var.client_vpn_server_certificate_arn
+  client_cidr_block      = var.client_cidr_block
+  description            = "Client VPN endpoint for SVT"
+  vpc_id                 = var.vpc_id
+
+  split_tunnel = true
+  dns_servers  = ["10.0.0.2"]
+
+  security_group_ids = [
+    aws_security_group.vpn_endpoint.id
+  ]
+
+
+  authentication_options {
+    type                       = "certificate-authentication"
+    root_certificate_chain_arn = var.client_vpn_server_certificate_arn
+  }
+
+  connection_log_options {
+    enabled               = true
+    cloudwatch_log_group  = aws_cloudwatch_log_group.vpn_log_group.name
+    cloudwatch_log_stream = aws_cloudwatch_log_stream.vpn_log_stream.name
+  }
+}
+
+resource "aws_ec2_client_vpn_authorization_rule" "vpc" {
+  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.client_vpn.id
+  target_network_cidr    = data.aws_vpc.this.cidr_block
+  authorize_all_groups   = true
+}
+
+resource "aws_ec2_client_vpn_authorization_rule" "egress" {
+  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.client_vpn.id
+  target_network_cidr    = "0.0.0.0/0"
+  authorize_all_groups   = true
+}
+
+resource "aws_ec2_client_vpn_network_association" "this" {
+  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.client_vpn.id
+  subnet_id              = data.aws_subnet.private[0].id
+}
+
+resource "aws_ec2_client_vpn_route" "internet" {
+  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.client_vpn.id
+  destination_cidr_block = "0.0.0.0/0"
+  target_vpc_subnet_id   = data.aws_subnet.private[0].id
 }
 
 #################
@@ -216,29 +298,17 @@ data "aws_iam_policy_document" "s3" {
 }
 
 data "aws_iam_policy_document" "system-manager" {
-  count = local.is_admin_password_systems_manager ? 1 : 0
   statement {
     actions = [
       "ssm:GetParameter"
     ]
     effect = "Allow"
     resources = [
-      "arn:aws:ssm:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:${var.admin_password}",
-      "arn:aws:ssm:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:${var.admin_token}"
-    ]
-  }
-}
-
-data "aws_iam_policy_document" "secrets-manager" {
-  count = local.is_admin_password_secrets_manager ? 1 : 0
-  statement {
-    actions = [
-      "secretsmanager:GetSecretValue"
-    ]
-    effect = "Allow"
-    resources = [
-      "arn:aws:secretsmanager:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:secret:${regex("secrets/(.*)", var.admin_password)[0]}",
-      "arn:aws:secretsmanager:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:secret:${regex("secrets/(.*)", var.admin_token)[0]}"
+      "arn:aws:ssm:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:admin_password",
+      "arn:aws:ssm:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:admin_token",
+      "arn:aws:ssm:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:vpc_id",
+      "arn:aws:ssm:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:influxdb_api_endpoint",
+      "arn:aws:ssm:${data.aws_region.this.name}:${data.aws_caller_identity.this.account_id}:influxdb_admin_endpoint"
     ]
   }
 }
@@ -250,38 +320,14 @@ resource "aws_iam_role_policy" "s3" {
 }
 
 resource "aws_iam_role_policy" "ssm" {
-  count       = local.is_admin_password_systems_manager ? 1 : 0
   name_prefix = "system-manager-"
-  policy      = data.aws_iam_policy_document.system-manager[0].json
-  role        = aws_iam_role.node.id
-}
-
-resource "aws_iam_role_policy" "secrets-manager" {
-  count       = local.is_admin_password_secrets_manager ? 1 : 0
-  name_prefix = "secrets-manager-"
-  policy      = data.aws_iam_policy_document.secrets-manager[0].json
+  policy      = data.aws_iam_policy_document.system-manager.json
   role        = aws_iam_role.node.id
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   role       = aws_iam_role.node.id
-}
-
-#################
-# Parameter Store
-#################
-
-resource "aws_ssm_parameter" "admin_password" {
-  name  = "admin_password"
-  type  = "String"
-  value = regex("(.*\\/)(.*)", var.admin_password)[1]
-}
-
-resource "aws_ssm_parameter" "admin_token" {
-  name  = "admin_token"
-  type  = "String"
-  value = regex("(.*\\/)(.*)", var.admin_token)[1]
 }
 
 #################
@@ -472,6 +518,41 @@ resource "aws_route53_record" "alias" {
   ttl     = 3600
   type    = "A"
   zone_id = var.hosted_zone_id
+}
+
+#################
+# Parameter Store
+#################
+
+resource "aws_ssm_parameter" "admin_password" {
+  name  = "/admin_password"
+  type  = "String"
+  value = var.admin_password
+}
+
+resource "aws_ssm_parameter" "admin_token" {
+  name  = "/admin_token"
+  type  = "String"
+  value = var.admin_token
+}
+
+resource "aws_ssm_parameter" "vpc_id" {
+  name  = "/vpc_id"
+  type  = "String"
+  value = var.vpc_id
+  tier = 
+}
+
+resource "aws_ssm_parameter" "influxdb_api_endpoint" {
+  name  = "/influxdb_api_endpoint"
+  type  = "String"
+  value = join(",", local.is_hosted_zone_provided ? formatlist("%s:8086", aws_route53_record.alias.*.fqdn) : formatlist("%s:8086", aws_network_interface.static.*.private_ip))
+}
+
+resource "aws_ssm_parameter" "influxdb_admin_endpoint" {
+  name  = "/influxdb_admin_endpoint"
+  type  = "String"
+  value = join(",", local.is_hosted_zone_provided ? formatlist("%s:8088", aws_route53_record.alias.*.fqdn) : formatlist("%s:8088", aws_network_interface.static.*.private_ip))
 }
 
 output "influxdb_api_endpoint" {
