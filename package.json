@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "plan": "cd terraform && terraform init && terraform plan",
-    "build:env": "node ./env.js",
-    "deploy:db": "cd terraform && terraform init && terraform apply -auto-approve && cd ../ && npm run build:env",
+    "deploy:db": "cd terraform && terraform init && terraform apply -auto-approve",
     "dev": "sst dev",
     "build:sst": "sst build",
     "deploy": "npm run deploy:db && sst deploy",

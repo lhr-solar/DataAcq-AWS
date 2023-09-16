@@ -417,6 +417,42 @@ resource "aws_instance" "node" {
   ]
 }
 
+# module "asg" {
+#   source = "terraform-aws-modules/autoscaling/aws"
+
+#   name     = "svt"
+#   min_size = 0
+#   max_size = 1
+
+#   health_check_type   = "EC2"
+#   vpc_zone_identifier = var.private_subnet_ids
+
+#   block_device_mappings = [{
+#     volume_size = var.root_volume_size
+#     encrypted   = true
+#   }]
+
+#   initial_lifecycle_hooks = [
+
+#   ]
+
+#   instance_type = var.instance_type
+#   credit_specification = {
+#     cpu_credits = var.ec2_cpu_credits
+#   }
+#   key_name = var.key_pair_name
+
+#   image_id                 = local.is_image_id_provided ? var.image_id : data.aws_ami.amzn2[0].id
+#   iam_instance_profile_arn = aws_iam_instance_profile.node.arn
+
+#   ebs_optimized = true
+#   tags          = merge(var.tags, { Name : "${local.prefix}influxdb" })
+#   user_data     = local.is_image_id_provided
+#   security_groups = [
+#     aws_security_group.private.id
+#   ]
+# }
+
 #################
 # Static Network Interface
 #################
@@ -540,7 +576,6 @@ resource "aws_ssm_parameter" "vpc_id" {
   name  = "/vpc_id"
   type  = "String"
   value = var.vpc_id
-  tier = 
 }
 
 resource "aws_ssm_parameter" "influxdb_api_endpoint" {

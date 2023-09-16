@@ -49,7 +49,7 @@ If region is changed from `us-east-1` (can be specified as var in `terraform/.au
 
 ### Development
 
-Development is straight-forward if using a non-prod account with Terraform, though time-consuming. Developing with SST is not straight forward. Due to the nature of VPCs, it is not possible to develop locally without some sort of [VPN](https://docs.sst.dev/live-lambda-development#working-with-a-vpc).
+Development is straight-forward though it requires some setup with AWS's VPN client for access to the private network. Once the VPN is setup, the influxdb server can be accessed from live lambdas.
 
 ## Overview
 

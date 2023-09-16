@@ -207,11 +207,14 @@
 
     - name: Get admin password from Parameter Store
       command: "/usr/bin/aws --region {{ aws_region }} ssm get-parameter --name 'admin_password' --with-decryption --query Parameter.Value --output text"
-      register: password
+      register: parameter_password
 
     - name: Get admin token from Parameter Store
       command: "/usr/bin/aws --region {{ aws_region }} ssm get-parameter --name 'admin_token' --with-decryption --query Parameter.Value --output text"
-      register: token
+      register: parameter_token
 
     - name: Setup InfluxDB
       command: "influx setup -u {{ admin_username }} -p {{ password }} -t {{ token }} -o {{ influxdb_org }} -b {{ influxdb_bucket }} -f"
+      vars:
+        password: "{{ parameter_password.stdout }}"
+        token: "{{ parameter_token.stdout }}"

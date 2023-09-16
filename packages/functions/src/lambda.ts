@@ -1,10 +1,7 @@
 import { ApiHandler } from "sst/node/api";
 
-import { InfluxDB, Point, HttpError } from "@influxdata/influxdb-client";
+import { InfluxDB } from "@influxdata/influxdb-client";
 import { BucketsAPI } from "@influxdata/influxdb-client-apis";
-import { promisify } from "util";
-
-console.log(process.env);
 
 const influx = new InfluxDB({
   url: `http://${process.env.INFLUXDB_API_ENDPOINT}`,
@@ -30,6 +27,6 @@ export const health = ApiHandler(async (_evt) => {
 
   return {
     statusCode: 200,
-    body: `OK. ${buckets?.length} buckets found.`,
+    body: `OK. InfluxDB has ${buckets.length} buckets.`,
   };
 });
